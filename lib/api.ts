@@ -1,4 +1,4 @@
-const API_BASE = "http://localhost:4000";
+const API_BASE = "https://vaibhav-hopn.onrender.com";
 
 export async function getBalance(address: string) {
   const res = await fetch(`${API_BASE}/balance/${address}`);
