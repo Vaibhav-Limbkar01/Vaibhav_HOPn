@@ -1,40 +1,36 @@
-import express from "express";
-import cors from "cors";
-import { v4 as uuid } from "uuid";
+const express = require("express");
+const cors = require("cors");
+const { v4: uuid } = require("uuid");
 
 const app = express();
 
+/* Middleware */
+app.use(cors());
 app.use(express.json());
 
-app.use(
-  cors({
-    origin: [
-      "http://localhost:3000",
-      "https://vaibhav-hopn.vercel.app"
-    ]
-  })
-);
-
-// In-memory ledger
+/* In-memory data */
 const balances = {};
 const transactions = [];
 
-/**
- * Get wallet balance
- */
-app.get("/balance/:address", (req, res) => {
-  const { address } = req.params;
-  const balance = balances[address] || 0;
-  res.json({ balance });
+/* Health check */
+app.get("/", (req, res) => {
+  res.send("Vaibhav_HOPn backend is live");
 });
 
-/**
- * Faucet (add test ETH)
- */
+/* Get wallet balance */
+app.get("/balance/:address", (req, res) => {
+  const { address } = req.params;
+  res.json({
+    balance: balances[address] || 0
+  });
+});
+
+/* Faucet: add test ETH */
 app.post("/faucet", (req, res) => {
   const { address } = req.body;
+
   if (!address) {
-    return res.status(400).json({ error: "Address required" });
+    return res.status(400).json({ error: "Address is required" });
   }
 
   balances[address] = (balances[address] || 0) + 10;
@@ -45,14 +41,12 @@ app.post("/faucet", (req, res) => {
   });
 });
 
-/**
- * Send transaction
- */
+/* Send transaction */
 app.post("/send", (req, res) => {
   const { from, to, amount } = req.body;
 
-  if (!from || !to || !amount) {
-    return res.status(400).json({ error: "Invalid transaction" });
+  if (!from || !to || typeof amount !== "number") {
+    return res.status(400).json({ error: "Invalid transaction data" });
   }
 
   if ((balances[from] || 0) < amount) {
@@ -76,20 +70,19 @@ app.post("/send", (req, res) => {
   res.json(tx);
 });
 
-/**
- * Get transactions
- */
+/* Get transaction history */
 app.get("/transactions/:address", (req, res) => {
   const { address } = req.params;
 
-  const userTx = transactions.filter(
+  const userTransactions = transactions.filter(
     (tx) => tx.from === address || tx.to === address
   );
 
-  res.json(userTx);
+  res.json(userTransactions);
 });
 
+/* Start server */
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
-  console.log(`Backend running on port ${PORT}`);
+  console.log(`Vaibhav_HOPn backend running on port ${PORT}`);
 });
