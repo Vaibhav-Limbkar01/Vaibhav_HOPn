@@ -1,53 +1,53 @@
-const express = require("express");
-const cors = require("cors");
-const { v4: uuidv4 } = require("uuid");
+import express from "express";
+import cors from "cors";
+import { v4 as uuid } from "uuid";
 
 const app = express();
-app.use(cors());
+
 app.use(express.json());
 
+app.use(
+  cors({
+    origin: [
+      "http://localhost:3000",
+      "https://vaibhav-hopn.vercel.app"
+    ]
+  })
+);
+
+// In-memory ledger
+const balances = {};
+const transactions = [];
+
 /**
- * In-memory decentralized ledger
- * address => { balance, transactions[] }
+ * Get wallet balance
  */
-const ledger = {};
-
-// Helper: ensure wallet exists
-function initWallet(address) {
-  if (!ledger[address]) {
-    ledger[address] = {
-      balance: 0,
-      transactions: [],
-    };
-  }
-}
-
-// Faucet (give test funds)
-app.post("/faucet", (req, res) => {
-  const { address } = req.body;
-  if (!address) return res.status(400).json({ error: "Address required" });
-
-  initWallet(address);
-  ledger[address].balance += 1000;
-
-  res.json({
-    address,
-    balance: ledger[address].balance,
-  });
-});
-
-// Get balance
 app.get("/balance/:address", (req, res) => {
   const { address } = req.params;
-  initWallet(address);
+  const balance = balances[address] || 0;
+  res.json({ balance });
+});
+
+/**
+ * Faucet (add test ETH)
+ */
+app.post("/faucet", (req, res) => {
+  const { address } = req.body;
+  if (!address) {
+    return res.status(400).json({ error: "Address required" });
+  }
+
+  balances[address] = (balances[address] || 0) + 10;
 
   res.json({
-    address,
-    balance: ledger[address].balance,
+    success: true,
+    balance: balances[address]
   });
 });
 
-// Send funds
+/**
+ * Send transaction
+ */
 app.post("/send", (req, res) => {
   const { from, to, amount } = req.body;
 
@@ -55,40 +55,41 @@ app.post("/send", (req, res) => {
     return res.status(400).json({ error: "Invalid transaction" });
   }
 
-  initWallet(from);
-  initWallet(to);
-
-  if (ledger[from].balance < amount) {
+  if ((balances[from] || 0) < amount) {
     return res.status(400).json({ error: "Insufficient balance" });
   }
 
+  balances[from] -= amount;
+  balances[to] = (balances[to] || 0) + amount;
+
   const tx = {
-    txHash: uuidv4(),
+    id: uuid(),
     from,
     to,
     amount,
     status: "confirmed",
-    timestamp: Date.now(),
+    timestamp: Date.now()
   };
 
-  ledger[from].balance -= amount;
-  ledger[to].balance += amount;
-
-  ledger[from].transactions.push(tx);
-  ledger[to].transactions.push(tx);
+  transactions.unshift(tx);
 
   res.json(tx);
 });
 
-// Get transactions
+/**
+ * Get transactions
+ */
 app.get("/transactions/:address", (req, res) => {
   const { address } = req.params;
-  initWallet(address);
 
-  res.json(ledger[address].transactions);
+  const userTx = transactions.filter(
+    (tx) => tx.from === address || tx.to === address
+  );
+
+  res.json(userTx);
 });
 
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
-  console.log(`Backend running on ${PORT}`);
+  console.log(`Backend running on port ${PORT}`);
 });
